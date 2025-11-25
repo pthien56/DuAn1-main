@@ -1,0 +1,19 @@
+# Enable rewrite engine
+RewriteEngine On
+
+# Set default charset
+AddDefaultCharset UTF-8
+
+# Prevent directory listing
+Options -Indexes
+
+# Protect config files
+<FilesMatch "^(database|functions)\.php$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Error pages (optional)
+# ErrorDocument 404 /404.php
+# ErrorDocument 500 /500.php
+
