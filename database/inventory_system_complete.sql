@@ -1,6 +1,9 @@
 ﻿-- Database schema và dữ liệu mẫu cho hệ thống quản lý bán điện thoại
 -- Date: 2024-12-13
 
+-- Thiết lập chế độ UTF-8 cho toàn bộ database
+CREATE DATABASE IF NOT EXISTS inventory_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE inventory_system;
 SET NAMES utf8mb4;
 SET CHARACTER SET utf8mb4;
 SET collation_connection = 'utf8mb4_unicode_ci';
