@@ -1,114 +1,141 @@
-<?php 
-$title = 'Dashboard - Quản trị';
-$admin = true;
-require_once __DIR__ . '/../layouts/header.php'; 
+<?php
+require_once "layouts/header.php";
+
+// Hàm hỗ trợ lấy màu sắc dựa trên trạng thái (Bạn có thể tùy chỉnh theo text trong DB của bạn)
+function getStatusBadgeClass($statusName) {
+    $statusName = mb_strtolower($statusName, 'UTF-8');
+    if (strpos($statusName, 'hoàn thành') !== false || strpos($statusName, 'thành công') !== false) {
+        return 'bg-success';
+    } elseif (strpos($statusName, 'hủy') !== false) {
+        return 'bg-danger';
+    } elseif (strpos($statusName, 'vận chuyển') !== false || strpos($statusName, 'giao hàng') !== false) {
+        return 'bg-info text-dark';
+    } elseif (strpos($statusName, 'chờ') !== false || strpos($statusName, 'mới') !== false) {
+        return 'bg-warning text-dark';
+    }
+    return 'bg-secondary'; // Mặc định
+}
 ?>
 
-<main>
-    <div class="container">
-        <h1>Dashboard - Quản trị hệ thống</h1>
-        
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h3>Tổng sản phẩm</h3>
-                <p class="stat-number"><?php echo $stats['total_products']; ?></p>
-            </div>
-            <div class="stat-card">
-                <h3>Tổng đơn hàng</h3>
-                <p class="stat-number"><?php echo $stats['total_orders']; ?></p>
-            </div>
-            <div class="stat-card">
-                <h3>Doanh thu</h3>
-                <p class="stat-number"><?php echo formatCurrency($stats['total_revenue']); ?></p>
-            </div>
-            <div class="stat-card">
-                <h3>Tổng khách hàng</h3>
-                <p class="stat-number"><?php echo $stats['total_customers']; ?></p>
+<div class="container-fluid px-4">
+    <h2 class="mt-4 mb-4">Dashboard</h2>
+
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card bg-primary text-white h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-white-50 small text-uppercase fw-bold">Tổng Sản Phẩm</div>
+                            <div class="fs-2 fw-bold"><?= number_format($stats['total_products']) ?></div>
+                        </div>
+                        <i class="fas fa-box fa-2x text-white-50"></i> </div>
+                </div>
             </div>
         </div>
-        
-        <div class="dashboard-sections">
-            <div class="dashboard-section">
-                <h2>Đơn hàng gần đây</h2>
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Mã đơn</th>
-                            <th>Khách hàng</th>
-                            <th>Ngày đặt</th>
-                            <th>Tổng tiền</th>
-                            <th>Trạng thái</th>
-                            <th>Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($recentOrders as $order): ?>
-                            <tr>
-                                <td>#<?php echo $order['order_id']; ?></td>
-                                <td><?php echo htmlspecialchars($order['full_name']); ?></td>
-                                <td><?php echo formatDateTime($order['order_date']); ?></td>
-                                <td><?php echo formatCurrency($order['total_amount']); ?></td>
-                                <td><?php echo htmlspecialchars($order['status_name']); ?></td>
-                                <td>
-                                    <a href="<?php echo baseUrl('admin/order-detail.php?id=' . $order['order_id']); ?>" class="btn btn-primary btn-small">Xem</a>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="dashboard-section">
-                <h2>Sản phẩm sắp hết hàng</h2>
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Sản phẩm</th>
-                            <th>Phiên bản</th>
-                            <th>Tồn kho</th>
-                            <th>Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($lowStock as $product): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($product['product_name']); ?></td>
-                                <td><?php echo htmlspecialchars($product['variant_name']); ?></td>
-                                <td class="<?php echo $product['stock_quantity'] < 5 ? 'text-danger' : ''; ?>">
-                                    <?php echo $product['stock_quantity']; ?>
-                                </td>
-                                <td>
-                                    <a href="<?php echo baseUrl('admin/products.php?edit=' . $product['variant_id']); ?>" class="btn btn-primary btn-small">Sửa</a>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card bg-success text-white h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-white-50 small text-uppercase fw-bold">Tổng Đơn Hàng</div>
+                            <div class="fs-2 fw-bold"><?= number_format($stats['total_orders']) ?></div>
+                        </div>
+                        <i class="fas fa-shopping-cart fa-2x text-white-50"></i>
+                    </div>
+                </div>
             </div>
         </div>
-        
-        <div class="admin-menu">
-            <h2>Quản lý</h2>
-            <div class="admin-menu-grid">
-                <a href="<?php echo baseUrl('admin/products.php'); ?>" class="admin-menu-item">
-                    <h3>Quản lý sản phẩm</h3>
-                    <p>Thêm, sửa, xóa sản phẩm</p>
-                </a>
-                <a href="<?php echo baseUrl('admin/orders.php'); ?>" class="admin-menu-item">
-                    <h3>Quản lý đơn hàng</h3>
-                    <p>Xem và cập nhật đơn hàng</p>
-                </a>
-                <a href="<?php echo baseUrl('admin/customers.php'); ?>" class="admin-menu-item">
-                    <h3>Quản lý khách hàng</h3>
-                    <p>Xem thông tin khách hàng</p>
-                </a>
-                <a href="<?php echo baseUrl('admin/inventory.php'); ?>" class="admin-menu-item">
-                    <h3>Quản lý kho</h3>
-                    <p>Nhập kho, xuất kho</p>
-                </a>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card bg-info text-white h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-white-50 small text-uppercase fw-bold">Tổng Khách Hàng</div>
+                            <div class="fs-2 fw-bold"><?= number_format($stats['total_customers']) ?></div>
+                        </div>
+                        <i class="fas fa-users fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card bg-warning text-dark h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-dark-50 small text-uppercase fw-bold">Doanh Thu Tháng</div>
+                            <div class="fs-2 fw-bold"><?= number_format($stats['revenue_month'], 0, ',', '.') ?> ₫</div>
+                        </div>
+                        <i class="fas fa-dollar-sign fa-2x text-dark-50"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</main>
 
-<?php require_once __DIR__ . '/../layouts/footer.php'; ?>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h5 class="m-0 font-weight-bold text-primary"><i class="fas fa-table me-2"></i>Đơn Hàng Mới Nhất</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle" width="100%" cellspacing="0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Mã Đơn</th>
+                                    <th>Khách Hàng</th>
+                                    <th>Ngày Đặt</th>
+                                    <th>Tổng Tiền</th>
+                                    <th class="text-center">Trạng Thái</th>
+                                    <th class="text-center">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($recentOrders)): ?>
+                                    <tr>
+                                        <td colspan="6" class="text-center py-4 text-muted">
+                                            <i class="fas fa-inbox fa-3x mb-3"></i><br>
+                                            Chưa có đơn hàng nào
+                                        </td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($recentOrders as $order): ?>
+                                        <tr>
+                                            <td class="fw-bold text-primary">#<?= $order['order_id'] ?></td>
+                                            <td>
+                                                <div class="fw-bold"><?= htmlspecialchars($order['customer_name']) ?></div>
+                                            </td>
+                                            <td><?= date('d/m/Y H:i', strtotime($order['order_date'])) ?></td>
+                                            <td class="text-danger fw-bold">
+                                                <?= number_format($order['total_amount'], 0, ',', '.') ?> ₫
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge rounded-pill <?= getStatusBadgeClass($order['status_name']) ?>">
+                                                    <?= htmlspecialchars($order['status_name']) ?>
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <a href="<?= BASE_URL ?>admin/orderDetail/<?= $order['order_id'] ?>" 
+                                                   class="btn btn-sm btn-outline-primary" title="Xem chi tiết">
+                                                    <i class="fas fa-eye"></i> Chi Tiết
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php require_once "layouts/footer.php"; ?>

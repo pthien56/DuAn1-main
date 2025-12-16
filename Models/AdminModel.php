@@ -1,63 +1,117 @@
 <?php
-namespace App\Models;
+// BaseModel đã được load từ index.php
 
-class AdminModel {
-    private $db;
+class AdminModel extends BaseModel {
     
-    public function __construct() {
-        $this->db = \App\Models\Database::getInstance();
+    public function login($username, $password) {
+        $sql = "SELECT * FROM Managers WHERE username = :username AND status = 'active'";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':username', $username);
+        $stmt->execute();
+        $manager = $stmt->fetch();
+        
+        if ($manager && password_verify($password, $manager['password'])) {
+            return $manager;
+        }
+        return false;
     }
     
-    public function getStatistics() {
+    public function getManagerById($id) {
+        $sql = "SELECT * FROM Managers WHERE manager_id = :id";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        return $stmt->fetch();
+    }
+    
+    public function getAllManagers() {
+        $sql = "SELECT * FROM Managers ORDER BY created_at DESC";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+    
+    public function createManager($data) {
+        $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        $sql = "INSERT INTO Managers (username, password, full_name, phone_number, email, role, status) 
+                VALUES (:username, :password, :full_name, :phone_number, :email, :role, :status)";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute($data);
+    }
+    
+    public function updateManager($id, $data) {
+        if (isset($data['password']) && !empty($data['password'])) {
+            $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
+            $sql = "UPDATE Managers SET 
+                    username = :username,
+                    password = :password,
+                    full_name = :full_name,
+                    phone_number = :phone_number,
+                    email = :email,
+                    role = :role,
+                    status = :status
+                    WHERE manager_id = :id";
+        } else {
+            unset($data['password']);
+            $sql = "UPDATE Managers SET 
+                    username = :username,
+                    full_name = :full_name,
+                    phone_number = :phone_number,
+                    email = :email,
+                    role = :role,
+                    status = :status
+                    WHERE manager_id = :id";
+        }
+        $stmt = $this->conn->prepare($sql);
+        $data['id'] = $id;
+        return $stmt->execute($data);
+    }
+    
+    public function deleteManager($id) {
+        $sql = "DELETE FROM Managers WHERE manager_id = :id";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        return $stmt->execute();
+    }
+    
+    public function getDashboardStats() {
         $stats = [];
         
-        $result = $this->db->fetchOne("SELECT COUNT(*) as count FROM Product_Variants WHERE stock_quantity > 0");
-        $stats['total_products'] = $result['count'] ?? 0;
+        // Tổng số sản phẩm
+        $sql = "SELECT COUNT(*) as total FROM Products";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $stats['total_products'] = (int) $stmt->fetchColumn();
         
-        $result = $this->db->fetchOne("SELECT COUNT(*) as count FROM Orders");
-        $stats['total_orders'] = $result['count'] ?? 0;
+        // Tổng số đơn hàng
+        $sql = "SELECT COUNT(*) as total FROM Orders";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $stats['total_orders'] = (int) $stmt->fetchColumn();
         
-        $result = $this->db->fetchOne("SELECT SUM(total_amount) as total FROM Orders WHERE order_status_id IN (SELECT order_status_id FROM Order_Status WHERE status_name = 'Đã giao hàng')");
-        $stats['total_revenue'] = $result['total'] ?? 0;
+        // Tổng số khách hàng
+        $sql = "SELECT COUNT(*) as total FROM Customers";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $stats['total_customers'] = (int) $stmt->fetchColumn();
         
-        $result = $this->db->fetchOne("SELECT COUNT(*) as count FROM Customers");
-        $stats['total_customers'] = $result['count'] ?? 0;
+        // Doanh thu tháng này
+        $sql = "SELECT SUM(total_amount) as total FROM Orders 
+                WHERE MONTH(order_date) = MONTH(CURRENT_DATE()) 
+                AND YEAR(order_date) = YEAR(CURRENT_DATE())";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $stats['revenue_month'] = $stmt->fetchColumn() ?? 0;
+        
+        // Đơn hàng mới hôm nay
+        $sql = "SELECT COUNT(*) as total FROM Orders 
+            WHERE DATE(order_date) = CURDATE()";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $stats['orders_today'] = (int) $stmt->fetchColumn();
         
         return $stats;
     }
-    
-    public function getRecentOrders($limit = 10) {
-        $sql = "SELECT o.*, c.full_name, os.status_name 
-                FROM Orders o 
-                JOIN Customers c ON o.customer_id = c.customer_id 
-                JOIN Order_Status os ON o.order_status_id = os.order_status_id 
-                ORDER BY o.order_date DESC 
-                LIMIT ?";
-        return $this->db->fetchAll($sql, [$limit], "i");
-    }
-    
-    public function getLowStockProducts($limit = 10, $threshold = 10) {
-        $sql = "SELECT pv.*, p.product_name 
-                FROM Product_Variants pv 
-                JOIN Products p ON pv.product_id = p.product_id 
-                WHERE pv.stock_quantity < ? 
-                ORDER BY pv.stock_quantity ASC 
-                LIMIT ?";
-        return $this->db->fetchAll($sql, [$threshold, $limit], "ii");
-    }
-    
-    public function getAllProducts() {
-        $sql = "SELECT pv.*, p.product_name, p.brand, c.category_name 
-                FROM Product_Variants pv 
-                JOIN Products p ON pv.product_id = p.product_id 
-                LEFT JOIN Categories c ON p.category_id = c.category_id 
-                ORDER BY pv.created_at DESC";
-        return $this->db->fetchAll($sql);
-    }
-    
-    public function deleteProduct($variant_id) {
-        $sql = "DELETE FROM Product_Variants WHERE variant_id = ?";
-        return $this->db->delete($sql, [$variant_id], "i");
-    }
 }
+?>
 

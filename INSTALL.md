@@ -1,99 +1,135 @@
-# Hướng dẫn cài đặt
+# Hướng Dẫn Cài Đặt
 
-## Yêu cầu hệ thống
+## Yêu Cầu Hệ Thống
 
-- XAMPP (hoặc WAMP/LAMP) với PHP 7.4+
-- MySQL 5.7+ hoặc MariaDB 10.3+
-- Web browser hiện đại
+- PHP 7.4 trở lên
+- MySQL 5.7 trở lên hoặc MariaDB 10.2 trở lên
+- Apache với mod_rewrite được bật
+- PDO và PDO_MySQL extension
 
-## Các bước cài đặt
+## Các Bước Cài Đặt
 
-### Bước 1: Cài đặt XAMPP
+### 1. Import Database
 
-1. Tải và cài đặt XAMPP từ https://www.apachefriends.org/
-2. Khởi động Apache và MySQL từ XAMPP Control Panel
+1. Mở phpMyAdmin (http://localhost/phpmyadmin)
+2. Tạo database mới tên `inventory_system` (hoặc sử dụng database có sẵn)
+3. Chọn database vừa tạo
+4. Vào tab "Import"
+5. Chọn file `inventory_system_complete.sql`
+6. Click "Go" để import
 
-### Bước 2: Tạo Database
+**Lưu ý:** Database sẽ tự động được tạo nếu chưa tồn tại khi import file SQL.
 
-1. Mở phpMyAdmin: http://localhost/phpmyadmin
-2. Tạo database mới tên `inventory_system` (hoặc import file `phone_schema.sql` sẽ tự tạo)
-3. Import file `phone_schema.sql`:
-   - Chọn database `inventory_system`
-   - Click tab "Import"
-   - Chọn file `phone_schema.sql`
-   - Click "Go"
+### 2. Cấu Hình Database
 
-4. Import file `sample_data.sql`:
-   - Vẫn trong database `inventory_system`
-   - Click tab "Import"
-   - Chọn file `sample_data.sql`
-   - Click "Go"
+Mở file `config/database.php` và cập nhật thông tin kết nối:
 
-### Bước 3: Cấu hình
-
-1. Mở file `config/database.php`
-2. Kiểm tra và cập nhật nếu cần:
-   ```php
-   define('DB_HOST', 'localhost');
-   define('DB_USER', 'root');
-   define('DB_PASS', '');  // Mật khẩu MySQL của bạn
-   define('DB_NAME', 'inventory_system');
-   ```
-
-### Bước 4: Kiểm tra
-
-1. Truy cập: http://localhost/duann1/
-2. Bạn sẽ thấy trang chủ với danh sách sản phẩm
-
-## Đăng nhập
-
-### Admin
-- URL: http://localhost/duann1/auth/login.php
-- Chọn "Quản trị viên"
-- Username: `admin`
-- Password: `password`
-
-### Khách hàng
-- Đăng ký tài khoản mới hoặc
-- Sử dụng thông tin từ dữ liệu mẫu:
-  - Số điện thoại: `0909999999`
-  - Email: `khach1@email.com`
-  - (Không cần mật khẩu cho đăng nhập khách hàng trong demo)
-
-## Khắc phục sự cố
-
-### Lỗi kết nối database
-- Kiểm tra MySQL đã chạy chưa
-- Kiểm tra thông tin trong `config/database.php`
-- Kiểm tra database `inventory_system` đã được tạo chưa
-
-### Lỗi 404
-- Kiểm tra file `.htaccess` có tồn tại không
-- Kiểm tra Apache mod_rewrite đã bật chưa
-
-### Không hiển thị sản phẩm
-- Kiểm tra đã import `sample_data.sql` chưa
-- Kiểm tra bảng `Product_Variants` có dữ liệu không
-
-## Cấu trúc thư mục sau khi cài đặt
-
-```
-duann1/
-├── assets/
-│   ├── css/
-│   ├── js/
-│   └── images/
-│       └── products/     (tạo thủ công nếu cần upload ảnh)
-├── config/
-├── auth/
-├── admin/
-├── api/
-└── includes/
+```php
+private $host = "localhost";        // Địa chỉ MySQL server
+private $db_name = "inventory_system";  // Tên database
+private $username = "root";          // Username MySQL
+private $password = "";              // Password MySQL (để trống nếu không có)
 ```
 
-## Lưu ý
+### 3. Cấu Hình BASE_URL
 
-- Mật khẩu mặc định là `password` - đổi ngay trong môi trường production
-- File `.htaccess` giúp bảo vệ một số file nhạy cảm
-- Hình ảnh sản phẩm sẽ hiển thị placeholder nếu không có file ảnh
+Mở file `config/config.php` và cập nhật BASE_URL:
+
+```php
+define('BASE_URL', 'http://localhost/DuAn1/');
+```
+
+**Lưu ý:** 
+- Thay `DuAn1` bằng tên thư mục dự án của bạn
+- Nếu chạy trên domain, thay bằng domain của bạn (ví dụ: `http://yourdomain.com/`)
+
+### 4. Kiểm Tra mod_rewrite
+
+Đảm bảo Apache đã bật mod_rewrite:
+
+1. Mở file `httpd.conf` của Apache
+2. Tìm dòng `#LoadModule rewrite_module modules/mod_rewrite.so`
+3. Bỏ dấu `#` ở đầu dòng
+4. Khởi động lại Apache
+
+### 5. Phân Quyền Thư Mục
+
+Đảm bảo Apache có quyền đọc các file:
+- Không cần quyền ghi đặc biệt cho các thư mục
+
+## Thông Tin Đăng Nhập Admin
+
+Sau khi import database, bạn có thể đăng nhập với:
+
+- **URL:** `http://localhost/DuAn1/auth/login`
+- **Username:** `admin`
+- **Password:** `password`
+
+**Lưu ý:** Password trong database đã được hash bằng bcrypt. Nếu muốn đổi password, bạn có thể:
+1. Tạo hash mới bằng PHP: `password_hash('your_password', PASSWORD_DEFAULT)`
+2. Cập nhật trong database bảng `Managers`
+
+## Kiểm Tra Cài Đặt
+
+1. Truy cập: `http://localhost/DuAn1/home/index`
+2. Nếu thấy trang chủ, cài đặt thành công!
+3. Thử đăng nhập admin: `http://localhost/DuAn1/auth/login`
+
+## Xử Lý Lỗi Thường Gặp
+
+### Lỗi: "Connection error"
+- Kiểm tra lại thông tin database trong `config/database.php`
+- Đảm bảo MySQL đang chạy
+- Kiểm tra username/password MySQL
+
+### Lỗi: "404 Not Found"
+- Kiểm tra mod_rewrite đã được bật
+- Kiểm tra file `.htaccess` có tồn tại
+- Kiểm tra BASE_URL trong `config/config.php`
+
+### Lỗi: "Class not found"
+- Kiểm tra autoload trong `config/config.php`
+- Đảm bảo các file Model/Controller đã được tạo đầy đủ
+
+### Lỗi: "Session not started"
+- Kiểm tra session đã được bật trong PHP
+- Kiểm tra quyền ghi của thư mục session (thường là `/tmp`)
+
+## Cấu Trúc Thư Mục
+
+```
+DuAn1/
+├── config/              # Cấu hình
+│   ├── config.php       # Cấu hình chung
+│   └── database.php     # Cấu hình database
+├── controllers/         # Controllers (MVC)
+│   ├── AdminController.php
+│   ├── CartController.php
+│   ├── HomeController.php
+│   ├── ProductController.php
+│   └── ...
+├── models/              # Models (MVC)
+│   ├── ProductModel.php
+│   ├── CartModel.php
+│   └── ...
+├── views/               # Views (MVC)
+│   ├── admin/           # Views cho admin
+│   ├── cart/            # Views giỏ hàng
+│   ├── home/            # Views trang chủ
+│   └── ...
+├── public/              # Tài nguyên công khai
+│   ├── css/             # Stylesheet
+│   └── js/              # JavaScript
+├── index.php            # Entry point
+├── .htaccess            # URL rewriting
+└── README.md            # Tài liệu
+```
+
+## Hỗ Trợ
+
+Nếu gặp vấn đề, vui lòng kiểm tra:
+1. PHP error log
+2. Apache error log
+3. MySQL error log
+4. Console trình duyệt (F12)
 

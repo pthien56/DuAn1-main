@@ -1,145 +1,180 @@
 <?php
-namespace App\Controllers;
-
-use App\Models\AuthModel;
-use App\Models\CustomerModel;
-use Exception;
+// Các class đã được load từ index.php
 
 class AuthController extends BaseController {
-    private $authModel;
+    
+    private $adminModel;
     private $customerModel;
     
     public function __construct() {
-        $this->authModel = new AuthModel();
+        $this->adminModel = new AdminModel();
         $this->customerModel = new CustomerModel();
     }
     
     public function login() {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $username = trim($this->sanitize($_POST['username'] ?? ''));
+        // Kiểm tra nếu đã đăng nhập
+        if (isset($_SESSION['customer_id'])) {
+            $this->redirect('home/index');
+        }
+        if (isset($_SESSION['admin_id'])) {
+            $this->redirect('admin/dashboard');
+        }
+        
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $username = $_POST['username'] ?? '';
             $password = $_POST['password'] ?? '';
             
-            // Validation
-            if (empty($username)) {
-                $this->view('auth/login', ['error' => 'Vui lòng nhập tên đăng nhập, email hoặc số điện thoại!']);
-                return;
-            }
-            
-            if (empty($password)) {
-                $this->view('auth/login', ['error' => 'Vui lòng nhập mật khẩu!']);
-                return;
-            }
-            
-            // Thử đăng nhập với tư cách admin trước
-            $manager = $this->authModel->loginManager($username, $password);
+            // Thử đăng nhập Admin trước
+            $manager = $this->adminModel->login($username, $password);
             
             if ($manager) {
-                $_SESSION['user_id'] = $manager['manager_id'];
-                $_SESSION['username'] = $manager['username'];
-                $_SESSION['full_name'] = $manager['full_name'];
-                $_SESSION['user_role'] = $manager['role'];
-                $_SESSION['user_type'] = 'admin';
+                $_SESSION['admin_id'] = $manager['manager_id'];
+                $_SESSION['admin_username'] = $manager['username'];
+                $_SESSION['admin_name'] = $manager['full_name'];
+                $_SESSION['admin_role'] = $manager['role'];
                 
-                $this->redirect('/admin/dashboard.php');
+                $_SESSION['success'] = 'Đăng nhập Admin thành công!';
+                $this->redirect('admin/dashboard');
                 return;
             }
             
-            // Nếu không phải admin, thử đăng nhập với tư cách khách hàng
-            // Lưu ý: Customer không có password trong database, chỉ cần email/phone
-            $customer = $this->authModel->loginCustomer($username);
+            // Nếu không phải admin, thử đăng nhập khách hàng (dùng username như email)
+            $customer = $this->customerModel->getCustomerByEmail($username);
             
             if ($customer) {
-                // Customer không cần password, nhưng vẫn yêu cầu nhập để tránh nhầm lẫn
-                // Có thể bỏ qua password check hoặc yêu cầu nhập bất kỳ gì
-                $_SESSION['user_id'] = $customer['customer_id'];
-                $_SESSION['username'] = $customer['phone_number'];
-                $_SESSION['full_name'] = $customer['full_name'];
-                $_SESSION['user_role'] = 'customer';
-                $_SESSION['user_type'] = 'customer';
+                // Kiểm tra password (nếu có)
+                $storedPassword = $customer['password'] ?? '';
                 
-                $this->redirect('/index.php');
-                return;
+                // Nếu chưa có password trong DB, cho phép đăng nhập (tương thích ngược)
+                // Hoặc kiểm tra password nếu có
+                if (empty($storedPassword) || password_verify($password, $storedPassword) || $password === $storedPassword) {
+                    // Kiểm tra trạng thái khách hàng
+                    $status = $customer['status'] ?? 'active';
+                    if ($status === 'locked') {
+                        $_SESSION['error'] = 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ với quản trị viên để được hỗ trợ.';
+                        $this->redirect('auth/login');
+                        return;
+                    }
+                    
+                    $_SESSION['customer_id'] = $customer['customer_id'];
+                    $_SESSION['customer_name'] = $customer['full_name'];
+                    $_SESSION['customer_email'] = $customer['email'];
+                    
+                    $_SESSION['success'] = 'Đăng nhập thành công!';
+                    
+                    // Redirect về trang trước đó nếu có
+                    if (isset($_SESSION['redirect_after_login'])) {
+                        $redirectUrl = $_SESSION['redirect_after_login'];
+                        unset($_SESSION['redirect_after_login']);
+                        $this->redirect($redirectUrl);
+                    } else {
+                        $this->redirect('home/index');
+                    }
+                    return;
+                }
             }
             
-            // Nếu cả hai đều thất bại
-            $this->view('auth/login', ['error' => 'Thông tin đăng nhập không chính xác! Vui lòng kiểm tra lại.']);
-        } else {
-            $this->view('auth/login');
+            $_SESSION['error'] = 'Tên đăng nhập hoặc mật khẩu không đúng.';
         }
+        
+        $data = ['pageTitle' => 'Đăng Nhập'];
+        $this->view('auth/login', $data);
     }
     
     public function register() {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $password = $_POST['password'] ?? '';
+            $confirmPassword = $_POST['confirm_password'] ?? '';
+            
+            // Kiểm tra mật khẩu
+            if (empty($password) || strlen($password) < 6) {
+                $_SESSION['error'] = 'Mật khẩu phải có ít nhất 6 ký tự.';
+                $this->view('auth/register', ['pageTitle' => 'Đăng Ký']);
+                return;
+            }
+            
+            if ($password !== $confirmPassword) {
+                $_SESSION['error'] = 'Mật khẩu xác nhận không khớp.';
+                $this->view('auth/register', ['pageTitle' => 'Đăng Ký']);
+                return;
+            }
+            
             $data = [
-                'full_name' => trim($this->sanitize($_POST['full_name'] ?? '')),
-                'phone_number' => trim($this->sanitize($_POST['phone_number'] ?? '')),
-                'email' => trim($this->sanitize($_POST['email'] ?? '')),
-                'address' => trim($this->sanitize($_POST['address'] ?? '')),
-                'gender' => $this->sanitize($_POST['gender'] ?? ''),
-                'date_of_birth' => !empty($_POST['date_of_birth']) ? $_POST['date_of_birth'] : null
+                'full_name' => $_POST['full_name'] ?? '',
+                'phone_number' => $_POST['phone_number'] ?? '',
+                'email' => $_POST['email'] ?? '',
+                'address' => $_POST['address'] ?? '',
+                'gender' => $_POST['gender'] ?? '',
+                'date_of_birth' => $_POST['date_of_birth'] ?? null,
+                'password' => password_hash($password, PASSWORD_DEFAULT)
             ];
             
-            // Validation
-            $errors = [];
-            
-            if (empty($data['full_name'])) {
-                $errors[] = 'Vui lòng nhập họ và tên!';
-            } elseif (strlen($data['full_name']) < 2) {
-                $errors[] = 'Họ và tên phải có ít nhất 2 ký tự!';
+            // Kiểm tra email đã tồn tại chưa
+            $existingCustomer = $this->customerModel->getCustomerByEmail($data['email']);
+            if ($existingCustomer) {
+                $_SESSION['error'] = 'Email đã được sử dụng. Vui lòng đăng nhập.';
+                $this->redirect('auth/login');
             }
             
-            if (empty($data['phone_number'])) {
-                $errors[] = 'Vui lòng nhập số điện thoại!';
-            } elseif (!preg_match('/^[0-9]{10,11}$/', $data['phone_number'])) {
-                $errors[] = 'Số điện thoại không hợp lệ! Vui lòng nhập 10-11 chữ số.';
-            }
+            $customerId = $this->customerModel->createCustomer($data);
             
-            if (empty($data['email'])) {
-                $errors[] = 'Vui lòng nhập email!';
-            } elseif (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                $errors[] = 'Email không hợp lệ!';
+            if ($customerId) {
+                $_SESSION['customer_id'] = $customerId;
+                $_SESSION['customer_name'] = $data['full_name'];
+                $_SESSION['customer_email'] = $data['email'];
+                
+                $_SESSION['success'] = 'Đăng ký thành công!';
+                
+                // Redirect về trang trước đó nếu có
+                if (isset($_SESSION['redirect_after_login'])) {
+                    $redirectUrl = $_SESSION['redirect_after_login'];
+                    unset($_SESSION['redirect_after_login']);
+                    $this->redirect($redirectUrl);
+                } else {
+                    $this->redirect('home/index');
+                }
+            } else {
+                $_SESSION['error'] = 'Đăng ký thất bại. Vui lòng thử lại.';
             }
-            
-            if (!empty($errors)) {
-                $this->view('auth/register', ['error' => implode('<br>', $errors)]);
-                return;
-            }
-            
-            // Kiểm tra trùng lặp
-            if ($this->customerModel->exists($data['phone_number'], $data['email'])) {
-                $this->view('auth/register', ['error' => 'Số điện thoại hoặc email đã được sử dụng! Vui lòng sử dụng thông tin khác.']);
-                return;
-            }
-            
-            // Tạo tài khoản
-            try {
-                $this->customerModel->create($data);
-                $this->view('auth/register', ['success' => 'Đăng ký thành công! Bạn có thể đăng nhập ngay bằng email hoặc số điện thoại.']);
-            } catch (Exception $e) {
-                $this->view('auth/register', ['error' => 'Có lỗi xảy ra khi đăng ký. Vui lòng thử lại sau!']);
-            }
-        } else {
-            $this->view('auth/register');
         }
+        
+        $data = ['pageTitle' => 'Đăng Ký'];
+        $this->view('auth/register', $data);
+    }
+    
+    public function adminLogin() {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $username = $_POST['username'] ?? '';
+            $password = $_POST['password'] ?? '';
+            
+            $manager = $this->adminModel->login($username, $password);
+            
+            if ($manager) {
+                $_SESSION['admin_id'] = $manager['manager_id'];
+                $_SESSION['admin_username'] = $manager['username'];
+                $_SESSION['admin_name'] = $manager['full_name'];
+                $_SESSION['admin_role'] = $manager['role'];
+                
+                $this->redirect('admin/dashboard');
+            } else {
+                $_SESSION['error'] = 'Tên đăng nhập hoặc mật khẩu không đúng';
+            }
+        }
+        
+        $data = ['pageTitle' => 'Đăng Nhập Admin'];
+        $this->view('auth/admin_login', $data);
     }
     
     public function logout() {
-        // Xóa tất cả session variables
-        $_SESSION = array();
-        
-        // Xóa session cookie nếu có
-        if (ini_get("session.use_cookies")) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000,
-                $params["path"], $params["domain"],
-                $params["secure"], $params["httponly"]
-            );
-        }
-        
-        // Hủy session
         session_destroy();
-        
-        $this->redirect('/index.php');
+        $this->redirect('home/index');
+    }
+    
+    protected function requireAuth() {
+        if (!isset($_SESSION['admin_id'])) {
+            $this->redirect('auth/adminLogin');
+        }
     }
 }
+?>
 

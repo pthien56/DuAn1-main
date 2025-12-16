@@ -1,25 +1,30 @@
 <?php
-// Database configuration
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'inventory_system');
+class Database {
+    private $host = "localhost";
+    private $db_name = "inventory_system";
+    private $username = "root";
+    private $password = "";
+    public $conn;
 
-// Create connection
-function getDBConnection() {
-    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-    
-    if ($conn->connect_error) {
-        die("Connection failed: " . $conn->connect_error);
+    public function getConnection() {
+        $this->conn = null;
+        try {
+            $this->conn = new PDO(
+                "mysql:host=" . $this->host . ";dbname=" . $this->db_name . ";charset=utf8mb4",
+                $this->username,
+                $this->password,
+                [
+                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
+                ]
+            );
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $this->conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            $this->conn->exec("SET NAMES utf8mb4");
+        } catch(PDOException $e) {
+            echo "Connection error: " . $e->getMessage();
+        }
+        return $this->conn;
     }
-    
-    $conn->set_charset("utf8");
-    return $conn;
-}
-
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
 }
 ?>
 
